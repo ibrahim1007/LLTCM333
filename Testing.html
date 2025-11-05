@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Backtest Tool</title>
+    <!-- Memuat Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Chart.js untuk grafik -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Memuat Google Fonts (Inter) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Menggunakan font Inter sebagai font utama */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6; /* bg-gray-100 */
+        }
+        /* Style kustom untuk input agar lebih konsisten pada tema terang */
+        .form-input, .form-select {
+            background-color: #FFFFFF; /* bg-white */
+            border-color: #D1D5DB; /* border-gray-300 */
+            color: #1F2937; /* text-gray-800 */
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            border-width: 1px;
+            font-size: 13px; /* Ukuran font diperkecil */
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #2563EB; /* border-blue-600 */
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); /* custom ring */
+        }
+        /* Zebra striping untuk tabel */
+        #trade-rows tr:nth-child(even) {
+            background-color: #F9FAFB; /* bg-gray-50 */
+        }
+
+        /* --- PERBAIKAN RESPONSIVE UNTUK TABEL --- */
+        @media (max-width: 767px) {
+            /* Sembunyikan header tabel di mobile */
+            #backtest-data thead {
+                display: none;
+            }
+            /* Ubah setiap baris menjadi seperti kartu */
+            #backtest-data tr {
+                display: block;
+                border: 1px solid #e5e7eb; /* border-gray-200 */
+                border-radius: 0.75rem; /* rounded-xl */
+                margin-bottom: 1rem;
+                padding: 1rem;
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+                background-color: #ffffff;
+            }
+            /* Ubah setiap sel menjadi baris di dalam kartu */
+            #backtest-data td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.5rem 0;
+                border: none;
+                text-align: right;
+            }
+             /* Hapus padding dan whitespace pada sel */
+            #backtest-data td.p-1.whitespace-nowrap {
+                padding: 0.5rem 0;
+                white-space: normal;
+            }
+            /* Tambahkan label sebelum input/select */
+            #backtest-data td::before {
+                content: attr(data-label);
+                font-weight: 600; /* font-semibold */
+                text-align: left;
+                padding-right: 1rem;
+                color: #4B5563; /* text-gray-600 */
+            }
+            /* Atur lebar input/select di dalam sel */
+            #backtest-data td .form-input,
+            #backtest-data td .form-select {
+                max-width: 60%;
+            }
+            /* Pusatkan tombol aksi */
+            #backtest-data td:last-child {
+                justify-content: center;
+                padding-top: 1rem;
+            }
+             /* Hilangkan label untuk kolom aksi */
+            #backtest-data td:last-child::before {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-200 text-gray-800 font-light">
+        <div class="mx-auto flex items-center justify-between px-6 py-4 md:px-10 md:py-8">
+            <!-- Teks Kiri -->
+            <div class="text-sm">
+                Testing
+            </div>
+
+            <!-- Navigasi Kanan (Desktop) -->
+            <nav class="hidden md:flex items-center space-x-5 text-sm">
+                <a href="index.html" class="hover:text-blue-600 transition-colors">Home</a>
+                <a href="about_new.html" class="hover:text-blue-600 transition-colors">About</a>
+                <a href="services.html" class="hover:text-blue-600 transition-colors">Services</a>
+                <a href="contact.html" class="hover:text-blue-600 transition-colors">Contact</a>
+                <a href="beranda.html" class="hover:text-blue-600 transition-colors">Beranda</a>
+                <a href="investasi.html" class="hover:text-blue-600 transition-colors">Investasi</a>
+                <a href="backtest.html" class="hover:text-blue-600 transition-colors">Backtest</a>
+            </nav>
+
+            <!-- Tombol Menu (Mobile) -->
+            <div class="md:hidden">
+                <button id="menu-btn" class="text-gray-800 relative z-30">
+                    <svg id="menu-open-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                    <svg id="menu-close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Menu Overlay Mobile -->
+    <div id="mobile-menu" class="hidden fixed inset-0 z-10 bg-white flex flex-col items-center justify-center">
+        <nav class="flex flex-col items-center space-y-8">
+            <a href="index.html" class="text-xl font-light hover:text-blue-600 transition-colors">Home</a>
+            <a href="about_new.html" class="text-xl font-light hover:text-blue-600 transition-colors">About</a>
+            <a href="services.html" class="text-xl font-light hover:text-blue-600 transition-colors">Services</a>
+            <a href="contact.html" class="text-xl font-light hover:text-blue-600 transition-colors">Contact</a>
+            <a href="beranda.html" class="text-xl font-light hover:text-blue-600 transition-colors">Beranda</a>
+            <a href="investasi.html" class="text-xl font-light hover:text-blue-600 transition-colors">Investasi</a>
+            <a href="backtest.html" class="text-xl font-light hover:text-blue-600 transition-colors">Backtest</a>
+        </nav>
+    </div>
+
+
+    <div class="px-4 sm:px-6 lg:px-8 pt-28 md:pt-40">
+
+        <!-- Pengaturan Awal -->
+        <section id="setup" class="bg-white p-4 md:p-6 rounded-xl shadow-md mb-8">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Pengaturan Awal</h2>
+            <div class="grid grid-cols-1 gap-6">
+                <div>
+                    <label for="pairs" class="block text-xs font-medium text-gray-700 mb-1">Pilih Pairs</label>
+                    <select id="pairs" class="form-select">
+                        <optgroup label="Forex Majors">
+                            <option>EURUSD</option>
+                            <option>GBPUSD</option>
+                            <option>USDJPY</option>
+                            <option>AUDUSD</option>
+                            <option>USDCAD</option>
+                            <option>USDCHF</option>
+                            <option>NZDUSD</option>
+                        </optgroup>
+                        <optgroup label="Forex Crosses">
+                            <option>AUDCAD</option>
+                            <option>AUDCHF</option>
+                            <option>AUDJPY</option>
+                            <option>AUDNZD</option>
+                            <option>CADCHF</option>
+                            <option>CADJPY</option>
+                            <option>CHFJPY</option>
+                            <option>EURAUD</option>
+                            <option>EURCAD</option>
+                            <option>EURCHF</option>
+                            <option>EURGBP</option>
+                            <option>EURJPY</option>
+                            <option>EURNZD</option>
+                            <option>GBPAUD</option>
+                            <option>GBPCAD</option>
+                            <option>GBPCHF</option>
+                            <option>GBPJPY</option>
+                            <option>GBPNZD</option>
+                            <option>NZDCAD</option>
+                            <option>NZDCHF</option>
+                            <option>NZDJPY</option>
+                        </optgroup>
+                        <optgroup label="Forex Exotics">
+                            <option>AUDSGD</option>
+                            <option>EURCZK</option>
+                            <option>EURHUF</option>
+                            <option>EURMXN</option>
+                            <option>EURNOK</option>
+                            <option>EURPLN</option>
+                            <option>EURSEK</option>
+                            <option>EURSGD</option>
+                            <option>EURTRY</option>
+                            <option>EURZAR</option>
+                            <option>GBPSGD</option>
+                            <option>GBPTRY</option>
+                            <option>GBPZAR</option>
+                            <option>NZDSGD</option>
+                            <option>USDCZK</option>
+                            <option>USDHUF</option>
+                            <option>USDMXN</option>
+                            <option>USDNOK</option>
+                            <option>USDPLN</option>
+                            <option>USDSEK</option>
+                            <option>USDSGD</option>
+                            <option>USDTRY</option>
+                            <option>USDZAR</option>
+                            <option>USDCNH</option>
+                            <option>USDHKD</option>
+                        </optgroup>
+                        <optgroup label="Commodities">
+                            <option>XAUUSD</option>
+                            <option>XAGUSD</option>
+                            <option>USOIL</option>
+                            <option>UKOIL</option>
+                            <option>XNGUSD</option>
+                            <option>XPTUSD</option>
+                            <option>XPDUSD</option>
+                        </optgroup>
+                        <optgroup label="Indices">
+                            <option>SPX500</option>
+                            <option>DJI30</option>
+                            <option>NDX100</option>
+                            <option>UK100</option>
+                            <option>GER30</option>
+                            <option>FRA40</option>
+                            <option>JPN225</option>
+                            <option>AUS200</option>
+                            <option>ESP35</option>
+                            <option>HK50</option>
+                            <option>EUSTX50</option>
+                            <option>SMI20</option>
+                            <option>TSX60</option>
+                            <option>NIFTY50</option>
+                            <option>CN50</option>
+                        </optgroup>
+                        <optgroup label="Crypto">
+                            <option>BTCUSD</option>
+                            <option>ETHUSD</option>
+                            <option>XRPUSD</option>
+                            <option>LTCUSD</option>
+                            <option>ADAUSD</option>
+                            <option>SOLUSD</option>
+                            <option>DOGEUSD</option>
+                            <option>BNBUSD</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabel Data Backtest -->
+        <section id="backtest-data" class="bg-white p-4 md:p-6 rounded-xl shadow-md">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Data Perdagangan</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tipe</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">R:R</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tgl Masuk</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Entry Price</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stop Loss</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Take Profit</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tgl Keluar</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hasil</th>
+                            <th class="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Catatan</th>
+                            <th class="p-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trade-rows" class="divide-y divide-gray-200">
+                        <!-- Baris data akan dimuat atau ditambahkan oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Tombol Aksi -->
+        <footer class="mt-8 flex flex-col sm:flex-row justify-center sm:justify-end gap-4">
+            <!-- PERUBAHAN: Tombol Unggah Excel -->
+            <label for="upload-btn" class="w-full sm:w-auto cursor-pointer text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 text-sm md:py-3 md:px-8 md:text-base rounded-lg transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Unggah Excel
+            </label>
+            <input type="file" id="upload-btn" accept=".csv" class="hidden">
+            
+            <button id="download-btn" class="w-full sm:w-auto bg-gray-200 hover:bg-gray-300 text-black font-bold py-2 px-5 text-sm md:py-3 md:px-8 md:text-base rounded-lg transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                Unduh Excel
+            </button>
+        </footer>
+
+        <!-- PERUBAHAN: Bagian Grafik -->
+        <section id="equity-chart-section" class="mt-12 bg-white p-4 md:p-6 rounded-xl shadow-md">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Grafik Kurva Ekuitas (Pips)</h2>
+            <div class="relative h-64 md:h-96">
+                <canvas id="equityChart"></canvas>
+            </div>
+        </section>
+
+        <section id="summary-stats" class="mt-12 bg-white p-4 md:p-6 rounded-xl shadow-md">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Ringkasan Statistik</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Total Eksekusi</p>
+                    <p id="total-trades" class="text-2xl font-bold text-gray-900">-</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Probabilitas</p>
+                    <p id="win-probability" class="text-2xl font-bold text-green-600">-</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Avg. R:R</p>
+                    <p id="avg-rr" class="text-2xl font-bold text-blue-600">-</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Avg. Holding Period</p>
+                    <p id="holding-period" class="text-lg md:text-xl font-bold text-purple-600">-</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-to-use" class="mt-12 bg-white p-4 md:p-6 rounded-xl shadow-md mb-8">
+            <h2 class="text-lg md:text-xl font-semibold text-gray-900 mb-4 border-b pb-3">Petunjuk Penggunaan</h2>
+            <div class="text-sm text-gray-700 space-y-4">
+                <ol class="list-decimal list-inside space-y-2">
+                    <li><strong>Pilih Instrumen:</strong> Mulai dengan memilih pasangan mata uang.</li>
+                    <li><strong>Isi Data:</strong> Masukkan detail setiap perdagangan secara manual, atau unggah file CSV dengan tombol "Unggah Excel".</li>
+                    <li><strong>Analisis Real-time:</strong> Perhatikan grafik dan ringkasan statistik yang otomatis diperbarui.</li>
+                    <li><strong>Penyimpanan Otomatis:</strong> Semua data tersimpan otomatis di browser Anda.</li>
+                    <li><strong>Unduh ke Excel:</strong> Klik "Unduh Excel" untuk menyimpan catatan Anda dalam format CSV.</li>
+                </ol>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tradeRowsContainer = document.getElementById('trade-rows');
+            const downloadBtn = document.getElementById('download-btn');
+            const uploadBtn = document.getElementById('upload-btn');
+            const pairsSelect = document.getElementById('pairs');
+            const menuBtn = document.getElementById('menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const menuOpenIcon = document.getElementById('menu-open-icon');
+            const menuCloseIcon = document.getElementById('menu-close-icon');
+            let equityChartInstance = null;
+
+            // --- PERUBAHAN: Fungsi baru untuk memperbarui grafik ---
+            function updateEquityChart() {
+                const allRows = tradeRowsContainer.querySelectorAll('tr');
+                const equityData = [0]; // Mulai dari 0
+                let accumulatedPips = 0;
+                const pairValue = pairsSelect.value.toUpperCase();
+                const isJpyPair = pairValue.includes('JPY');
+                const multiplier = isJpyPair ? 100 : 10000;
+
+                allRows.forEach(row => {
+                    const entryPrice = parseFloat(row.querySelector('.entry-price').value);
+                    if (entryPrice > 0) {
+                        const tradeType = row.querySelector('.trade-type').value;
+                        const result = row.querySelector('.result').value;
+                        const stopLoss = parseFloat(row.querySelector('.stop-loss').value);
+                        const takeProfit = parseFloat(row.querySelector('.take-profit').value);
+                        
+                        let pips = 0;
+                        if (result === 'tp') {
+                            pips = (tradeType === 'Buy') ? (takeProfit - entryPrice) : (entryPrice - takeProfit);
+                        } else { // 'sl'
+                            pips = (tradeType === 'Buy') ? (stopLoss - entryPrice) : (entryPrice - stopLoss);
+                        }
+                        
+                        const pipsValue = Math.round(pips * multiplier);
+                        if (!isNaN(pipsValue)) {
+                            accumulatedPips += pipsValue;
+                            equityData.push(accumulatedPips);
+                        }
+                    }
+                });
+
+                const labels = equityData.map((_, index) => index === 0 ? 'Start' : `Trade ${index}`);
+                const ctx = document.getElementById('equityChart').getContext('2d');
+                
+                if (equityChartInstance) {
+                    equityChartInstance.destroy();
+                }
+
+                equityChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Equity (Pips)',
+                            data: equityData,
+                            borderColor: '#EF4444', // Warna merah (red-500)
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#EF4444',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.1,
+                            fill: true,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: false } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            function updateSummaryStatistics() {
+                const allRows = tradeRowsContainer.querySelectorAll('tr');
+                const totalTradesEl = document.getElementById('total-trades');
+                const winProbabilityEl = document.getElementById('win-probability');
+                const avgRrEl = document.getElementById('avg-rr');
+                const holdingPeriodEl = document.getElementById('holding-period');
+
+                let totalTrades = 0, wins = 0, totalFinishedTrades = 0, totalRatio = 0, validRatioTrades = 0, totalMilliseconds = 0, validPeriodTrades = 0;
+
+                allRows.forEach(row => {
+                    const entryPrice = row.querySelector('.entry-price').value;
+                    if (entryPrice && parseFloat(entryPrice) > 0) {
+                        totalTrades++;
+                        const result = row.querySelector('.result').value;
+                        if (result === 'tp' || result === 'sl') {
+                            totalFinishedTrades++;
+                            if (result === 'tp') wins++;
+                        }
+                        const rrText = row.querySelector('.risk-reward-ratio').textContent;
+                        if (rrText !== '-') {
+                            const ratioValue = parseFloat(rrText.split(':')[1]);
+                            if (!isNaN(ratioValue)) {
+                                totalRatio += ratioValue;
+                                validRatioTrades++;
+                            }
+                        }
+                        const entryDateStr = row.querySelector('.entry-date').value;
+                        const exitDateStr = row.querySelector('.exit-date').value;
+                        if (entryDateStr && exitDateStr) {
+                            const entryDate = new Date(entryDateStr);
+                            const exitDate = new Date(exitDateStr);
+                            const diff = exitDate - entryDate;
+                            if (!isNaN(diff) && diff >= 0) {
+                                totalMilliseconds += diff;
+                                validPeriodTrades++;
+                            }
+                        }
+                    }
+                });
+
+                totalTradesEl.textContent = totalTrades;
+                const winRate = totalFinishedTrades > 0 ? (wins / totalFinishedTrades) * 100 : 0;
+                winProbabilityEl.textContent = `${winRate.toFixed(1)}%`;
+                const avgRatio = validRatioTrades > 0 ? totalRatio / validRatioTrades : 0;
+                avgRrEl.textContent = `1:${avgRatio.toFixed(2)}`;
+                if (validPeriodTrades > 0) {
+                    const avgMilliseconds = totalMilliseconds / validPeriodTrades;
+                    const days = Math.floor(avgMilliseconds / 86400000);
+                    const hours = Math.floor((avgMilliseconds % 86400000) / 3600000);
+                    const minutes = Math.floor((avgMilliseconds % 3600000) / 60000);
+                    holdingPeriodEl.textContent = `${days}h ${hours}j ${minutes}m`;
+                } else {
+                    holdingPeriodEl.textContent = '-';
+                }
+            }
+
+
+            function calculateAndDisplayRR(row) {
+                const tradeType = row.querySelector('.trade-type').value;
+                const entryPrice = parseFloat(row.querySelector('.entry-price').value);
+                const stopLoss = parseFloat(row.querySelector('.stop-loss').value);
+                const takeProfit = parseFloat(row.querySelector('.take-profit').value);
+                const rrDisplay = row.querySelector('.risk-reward-ratio');
+
+                if (!entryPrice || !stopLoss || !takeProfit || entryPrice <= 0 || stopLoss <= 0 || takeProfit <= 0) {
+                    rrDisplay.textContent = '-'; return;
+                }
+
+                let risk, reward;
+                if (tradeType === 'Buy') {
+                    risk = entryPrice - stopLoss;
+                    reward = takeProfit - entryPrice;
+                } else {
+                    risk = stopLoss - entryPrice;
+                    reward = entryPrice - takeProfit;
+                }
+                
+                if (risk <= 0 || reward <= 0) {
+                    rrDisplay.textContent = '-'; return;
+                }
+
+                const ratio = reward / risk;
+                rrDisplay.textContent = `1:${ratio.toFixed(2)}`;
+            }
+
+            function saveData() {
+                localStorage.setItem('backtestTool_selectedPair', pairsSelect.value);
+
+                const tradeData = [];
+                tradeRowsContainer.querySelectorAll('tr').forEach(row => {
+                    tradeData.push({
+                        type: row.querySelector('.trade-type').value,
+                        entryDate: row.querySelector('.entry-date').value,
+                        entryPrice: row.querySelector('.entry-price').value,
+                        stopLoss: row.querySelector('.stop-loss').value,
+                        takeProfit: row.querySelector('.take-profit').value,
+                        exitDate: row.querySelector('.exit-date').value,
+                        result: row.querySelector('.result').value,
+                        notes: row.querySelector('.notes').value,
+                    });
+                });
+                localStorage.setItem('backtestTool_tradeData', JSON.stringify(tradeData));
+                updateSummaryStatistics();
+                updateEquityChart(); // Panggil update grafik
+            }
+
+            function createTradeRow(data = null) {
+                const isFirstRow = tradeRowsContainer.children.length === 0;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-1 whitespace-nowrap" data-label="Tipe"><select class="form-select trade-type min-w-[80px]"><option ${data?.type === 'Buy' ? 'selected' : ''}>Buy</option><option ${data?.type === 'Sell' ? 'selected' : ''}>Sell</option></select></td>
+                    <td class="p-1 whitespace-nowrap text-sm font-semibold text-gray-700" data-label="R:R"><span class="risk-reward-ratio">-</span></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Tgl Masuk"><input type="date" class="form-input entry-date min-w-[120px]" value="${data?.entryDate || ''}"></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Entry Price"><input type="number" step="any" class="form-input entry-price text-right min-w-[110px]" placeholder="1.12345" value="${data?.entryPrice || ''}"></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Stop Loss"><input type="number" step="any" class="form-input stop-loss text-right min-w-[110px]" placeholder="1.12000" value="${data?.stopLoss || ''}"></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Take Profit"><input type="number" step="any" class="form-input take-profit text-right min-w-[110px]" placeholder="1.13000" value="${data?.takeProfit || ''}"></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Tgl Keluar"><input type="date" class="form-input exit-date min-w-[120px]" value="${data?.exitDate || ''}"></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Hasil"><select class="form-select result min-w-[120px]"><option value="tp" ${data?.result === 'tp' ? 'selected' : ''}>TP</option><option value="sl" ${data?.result === 'sl' ? 'selected' : ''}>SL</option></select></td>
+                    <td class="p-1 whitespace-nowrap" data-label="Catatan"><input type="text" class="form-input notes min-w-[150px]" placeholder="Tulis catatan..." value="${data?.notes || ''}"></td>
+                    <td class="p-1 whitespace-nowrap text-center" data-label="Aksi">
+                        <div class="flex items-center justify-center gap-1">
+                             <button class="add-row-btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-black transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg></button>
+                            <button class="remove-row-btn p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-black transition-colors ${isFirstRow ? 'invisible' : ''}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" /></svg></button>
+                        </div>
+                    </td>
+                `;
+                tradeRowsContainer.appendChild(tr);
+                calculateAndDisplayRR(tr);
+            }
+            
+            function loadData() {
+                const savedPair = localStorage.getItem('backtestTool_selectedPair');
+                if (savedPair) pairsSelect.value = savedPair;
+
+                const savedTradeData = JSON.parse(localStorage.getItem('backtestTool_tradeData'));
+                if (savedTradeData && savedTradeData.length > 0) {
+                    savedTradeData.forEach(data => createTradeRow(data));
+                } else {
+                    createTradeRow();
+                }
+                saveData(); // Memanggil saveData untuk update semua statistik & grafik
+            }
+
+            // --- PERUBAHAN: Fungsi untuk menangani unggahan file ---
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const lines = content.split('\n').filter(line => line.trim() !== '');
+                    
+                    if (lines.length <= 1) {
+                        alert("File CSV kosong atau hanya berisi header.");
+                        return;
+                    }
+
+                    // Hapus baris yang ada, kecuali yang pertama jika kosong
+                    while (tradeRowsContainer.firstChild) {
+                        tradeRowsContainer.removeChild(tradeRowsContainer.firstChild);
+                    }
+
+                    // Loop mulai dari baris kedua (indeks 1) untuk melewati header
+                    lines.slice(1).forEach(line => {
+                        const cols = line.split(';');
+                        // Asumsi urutan kolom: Pair, Action, R:R, Tgl Entry, Tgl Exit, Entry, TP, SL, Keterangan, Catatan
+                        if (cols.length >= 9) {
+                            const tradeData = {
+                                type: cols[1],
+                                entryDate: cols[3],
+                                exitDate: cols[4],
+                                entryPrice: cols[5],
+                                takeProfit: cols[6],
+                                stopLoss: cols[7],
+                                result: cols[8].toLowerCase() === 'tp' ? 'tp' : 'sl',
+                                notes: cols[9]
+                            };
+                            createTradeRow(tradeData);
+                        }
+                    });
+                    saveData(); // Simpan dan perbarui semua setelah impor
+                };
+                reader.readAsText(file);
+                event.target.value = ''; // Reset input file
+            }
+
+            // Event Listeners
+            menuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                menuOpenIcon.classList.toggle('hidden');
+                menuCloseIcon.classList.toggle('hidden');
+                document.body.classList.toggle('overflow-hidden');
+            });
+            
+            uploadBtn.addEventListener('change', handleFileUpload);
+
+            tradeRowsContainer.addEventListener('click', function(e) {
+                const addBtn = e.target.closest('.add-row-btn');
+                const removeBtn = e.target.closest('.remove-row-btn');
+                if (addBtn) { e.preventDefault(); createTradeRow(); saveData(); }
+                if (removeBtn && tradeRowsContainer.children.length > 1) { e.preventDefault(); removeBtn.closest('tr').remove(); saveData(); }
+            });
+
+            pairsSelect.addEventListener('change', saveData);
+            tradeRowsContainer.addEventListener('input', function(e) {
+                const targetRow = e.target.closest('tr');
+                if (targetRow) calculateAndDisplayRR(targetRow);
+                saveData();
+            });
+            tradeRowsContainer.addEventListener('change', saveData);
+
+            downloadBtn.addEventListener('click', function() {
+                const headers = ['Pair', 'Action', 'R:R', 'Tanggal Entry', 'Tanggal Exit', 'Entry', 'TP', 'SL', 'Keterangan', 'Catatan'];
+                let csvContent = headers.join(';') + '\r\n';
+                const pairValue = pairsSelect.value;
+                tradeRowsContainer.querySelectorAll('tr').forEach(row => {
+                    if (row.querySelector('.entry-price').value) {
+                        const rowData = [
+                            pairValue, row.querySelector('.trade-type').value, row.querySelector('.risk-reward-ratio').textContent, 
+                            row.querySelector('.entry-date').value, row.querySelector('.exit-date').value, row.querySelector('.entry-price').value, 
+                            row.querySelector('.take-profit').value, row.querySelector('.stop-loss').value, 
+                            (row.querySelector('.result').value === 'tp' ? 'TP' : 'SL'), row.querySelector('.notes').value.replace(/;/g, ',')
+                        ];
+                        csvContent += rowData.join(';') + '\r\n';
+                    }
+                });
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `backtest_${pairValue}.csv`);
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            });
+            
+            loadData();
+        });
+    </script>
+</body>
+</html>
+
